@@ -1,0 +1,8 @@
+{
+  "name": "TravelVerse",
+  "description": "A modern AI-powered travel planning web app for generating personalized itineraries, exploring interactive maps, and managing travel budgets.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

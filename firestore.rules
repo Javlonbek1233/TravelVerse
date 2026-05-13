@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 2. Validation Blueprints
+    function isValidTrip(data) {
+      return data.userId == request.auth.uid
+        && data.destination is string && data.destination.size() <= 100
+        && (data.status in ['planning', 'active', 'completed'])
+        && data.budget is number
+        && data.createdAt == request.time;
+    }
+
+    function isValidUser(data) {
+      return data.email is string && data.email.size() <= 100
+        && data.createdAt == request.time;
+    }
+
+    // --- Collections ---
+
+    // Trips
+    match /trips/{tripId} {
+      allow read, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() 
+        && isValidId(tripId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId);
+      allow create: if isOwner(userId) && request.resource.data.createdAt == request.time;
+      allow update: if isOwner(userId);
+    }
+
+    // Journals
+    match /journals/{journalId} {
+      allow read, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() 
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+  }
+}
